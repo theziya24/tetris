@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>KelimeTetris</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="root">
+
+        <!-- ════════════════════════════════
+     SPLASH / LOGIN SCREEN
+════════════════════════════════ -->
+        <div id="screen-login" class="screen active">
+            <div
+                style="margin:auto 0;text-align:center;width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;padding:40px 0">
+                <div class="logo" style="font-size:36px">Kelime<span>Tetris</span></div>
+                <div class="subtitle" style="font-size:14px"><span data-i18n="app_subtitle">Oynayarak öğren</span></div>
+                <div style="height:1px;width:60px;background:var(--border);margin:4px 0"></div>
+                <button class="btn-primary" style="width:220px;padding:14px;font-size:16px" onclick="autoLogin()">
+                    ▶ Oynamaya Başla
+                </button>
+                <div style="font-size:12px;color:var(--text3)">Hesap gerekmez — hemen başla</div>
+                <div style="display:flex;align-items:center;gap:10px;width:80%;margin-top:4px">
+                    <div style="flex:1;height:0.5px;background:var(--border)"></div>
+                    <span style="font-size:11px;color:var(--text3)">veya</span>
+                    <div style="flex:1;height:0.5px;background:var(--border)"></div>
+                </div>
+                <div style="display:flex;gap:8px;width:100%;max-width:280px">
+                    <button onclick="openLoginModal('student')"
+                        style="flex:1;padding:11px 8px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--bg2);font-size:13px;color:var(--text);cursor:pointer">
+                        🎒 Öğrenci
+                    </button>
+                    <button onclick="openLoginModal('teacher')"
+                        style="flex:1;padding:11px 8px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--bg2);font-size:13px;color:var(--text);cursor:pointer">
+                        📋 Öğretmen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     LOGIN MODAL (Öğrenci / Öğretmen)
+════════════════════════════════ -->
+        <div id="login-modal-backdrop"
+            style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:flex-end;justify-content:center">
+            <div
+                style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:420px;padding:20px 16px;max-height:90vh;overflow-y:auto">
+
+                <!-- Student login paneli -->
+                <div id="panel-student" class="login-panel" style="display:none;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                        <div style="font-size:15px;font-weight:600;color:var(--text)">🎒 Öğrenci Girişi</div>
+                        <button onclick="closeLoginModal()"
+                            style="background:none;border:none;font-size:20px;color:var(--text3);cursor:pointer;line-height:1">×</button>
+                    </div>
+                    <input class="input-field" id="s-name" type="text" placeholder="Adınız">
+                    <input class="input-field" id="s-surname" type="text" placeholder="Soyadınız">
+                    <input class="input-field" id="s-code" type="text" placeholder="Öğretmen kodu (örn: AE876588)"
+                        style="text-transform:uppercase;letter-spacing:2px;font-family:monospace">
+                    <button class="btn-primary" onclick="loginStudent()">Sınıfa Katıl</button>
+                </div>
+
+                <!-- Teacher login paneli -->
+                <div id="panel-teacher" class="login-panel" style="display:none;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                        <div style="font-size:15px;font-weight:600;color:var(--text)">📋 Öğretmen Girişi</div>
+                        <button onclick="closeLoginModal()"
+                            style="background:none;border:none;font-size:20px;color:var(--text3);cursor:pointer;line-height:1">×</button>
+                    </div>
+                    <input class="input-field" id="t-name" type="text" placeholder="Adınız Soyadınız">
+                    <input class="input-field" id="t-class" type="text" placeholder="Sınıf adı (örn: 5-A)">
+                    <input class="input-field" id="t-phone" type="tel" placeholder="Telefon numarası">
+                    <button class="btn-primary" onclick="loginTeacher()">Kod Gönder</button>
+                    <div id="teacher-sms-step" style="display:none;flex-direction:column;gap:8px">
+                        <div class="alert alert-orange">SMS ile gönderilen 6 haneli kodu girin.</div>
+                        <input class="input-field" id="t-sms" type="text" placeholder="SMS kodu" maxlength="6"
+                            style="letter-spacing:4px;text-align:center;font-family:monospace;font-size:18px">
+                        <button class="btn-primary" onclick="verifySMS()">Doğrula ve Giriş Yap</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     MENU SCREEN
+════════════════════════════════ -->
+        <div id="screen-menu" class="screen">
+            <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:4px">
+                <div>
+                    <div class="logo" style="font-size:22px">Kelime<span>Tetris</span></div>
+                    <div style="font-size:12px;color:var(--text3)" id="menu-user-sub">Hoş geldin</div>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center">
+                    <div id="streak-badge">🔥 <span id="streak-num">0</span></div>
+                    <button class="btn-secondary" style="padding:6px 10px;font-size:12px"
+                        onclick="logout()">Çıkış</button>
+                </div>
+            </div>
+
+            <!-- Menu stat bar -->
+            <div class="card" style="width:100%">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <span style="font-size:11px;color:var(--text3)"><span data-i18n="overall_progress">Genel
+                            Başarın</span></span>
+                    <span style="font-size:11px;font-weight:500;color:var(--green)" id="menu-pct-txt">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="menu-fill" style="width:0%"></div>
+                </div>
+                <div class="sbm-nums" style="margin-top:6px">
+                    <div class="sbm-num"><span id="mu-learned">0</span><small><span
+                                data-i18n="learned">Öğrenilen</span></small></div>
+                    <div class="sbm-num"><span id="mu-correct">0</span><small><span
+                                data-i18n="correct">Doğru</span></small></div>
+                    <div class="sbm-num"><span id="mu-wrong">0</span><small><span
+                                data-i18n="wrong">Yanlış</span></small></div>
+                    <div class="sbm-num"><span id="mu-streak">0</span><small><span
+                                data-i18n="streak">Seri</span></small></div>
+                </div>
+            </div>
+
+            <div class="section-lbl"><span data-i18n="word_selection">Kelime Seçimi</span></div>
+
+            <!-- KATEGORİ DROPDOWN -->
+            <div class="cat-dropdown" id="cat-dropdown-wrap">
+                <div class="cat-dropdown-trigger" id="cat-dropdown-trigger" onclick="toggleCatDropdown()">
+                    <span style="font-size:13px;color:var(--text3);margin-right:4px">📂</span>
+                    <span class="cat-dropdown-selected" id="cat-dropdown-label">Kategori seçin...</span>
+                    <span class="cat-dropdown-arrow">▼</span>
+                </div>
+                <div class="cat-dropdown-list" id="cat-dropdown-list"></div>
+            </div>
+
+            <!-- <span data-i18n="level">SEVİYE</span> DROPDOWN -->
+            <div class="cat-dropdown" id="level-dropdown-wrap" style="margin-top:6px">
+                <div class="cat-dropdown-trigger" id="level-dropdown-trigger" onclick="toggleLevelDropdown()">
+                    <span style="font-size:13px;color:var(--text3);margin-right:4px">🎯</span>
+                    <span class="cat-dropdown-selected" id="level-dropdown-label">Seviye seçin...</span>
+                    <span class="cat-dropdown-arrow">▼</span>
+                </div>
+                <div class="cat-dropdown-list" id="level-dropdown-list"></div>
+            </div>
+
+            <!-- KENDİ LİSTEM (premium/öğretmen/admin) -->
+            <div id="mode-panel-mylist" style="display:none;width:100%;flex-direction:column;gap:6px;margin-top:6px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div class="section-lbl" style="margin:0">📝 Kendi Kelime Listem</div>
+                    <button onclick="openImportModal()"
+                        style="padding:5px 10px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:11px;cursor:pointer">+
+                        Ekle</button>
+                </div>
+                <div id="mylist-quota-wrap"></div>
+                <div id="mylist-empty-msg" class="mylist-empty">Henüz kelime eklemediniz.<br><span
+                        style="color:var(--green);cursor:pointer" onclick="openImportModal()">Excel veya görsel ile
+                        ekleyin →</span></div>
+            </div>
+
+            <div id="teacher-assigned-info" style="display:none" class="alert alert-green">
+                Öğretmenin sana <strong id="assigned-cat-name"></strong> kategorisini atadı.
+            </div>
+
+            <button class="btn-primary" onclick="startGame()" style="margin-top:4px">Oyna</button>
+
+            <div class="nav-row">
+                <button class="nav-btn" onclick="showScreen('stats')">İstatistik</button>
+                <button class="nav-btn" onclick="showScreen('settings')">Ayarlar</button>
+                <button id="btn-teacher-panel" class="nav-btn"
+                    style="display:none;background:var(--green-light);color:var(--green-dark);border-color:var(--green)"
+                    onclick="showTeacherPanel()">Öğretmen</button>
+                <button id="btn-admin-panel" class="nav-btn"
+                    style="display:none;background:#f0edff;color:var(--purple);border-color:var(--purple)"
+                    onclick="showScreen('admin')">Admin</button>
+            </div>
+
+            <div class="alert alert-green" style="width:100%" id="spaced-info">
+                Bugün tekrar edilecek <strong id="due-count">0</strong> kelimen var.
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     GAME SCREEN
+════════════════════════════════ -->
+        <div id="screen-game" class="screen">
+            <button class="back-btn" onclick="showScreen('menu')" style="margin-bottom:6px"><span
+                    data-i18n="back_menu">← Menü</span></button>
+            <div id="hud">
+                <div class="hud-box">
+                    <div class="hud-lbl"><span data-i18n="score">SKOR</span></div>
+                    <div class="hud-val" id="hud-score">0</div>
+                </div>
+                <div class="hud-box">
+                    <div class="hud-lbl"><span data-i18n="combo">KOMBO</span></div>
+                    <div class="hud-val" id="hud-combo">x1</div>
+                </div>
+                <div class="hud-box">
+                    <div class="hud-lbl">SEVİYE</div>
+                    <div class="hud-val" id="hud-level">1</div>
+                </div>
+            </div>
+            <div id="combo-row">
+                <div class="cdot" id="cd0"></div>
+                <div class="cdot" id="cd1"></div>
+                <div class="cdot" id="cd2"></div>
+                <div class="cdot" id="cd3"></div>
+                <div class="cdot" id="cd4"></div>
+                <div class="cdot" id="cd5"></div>
+                <div class="cdot" id="cd6"></div>
+            </div>
+            <div id="game-layout">
+                <div id="prog-bar-wrap">
+                    <div id="prog-bar-icon">★</div>
+                    <div id="prog-bar-track">
+                        <div id="prog-bar-fill" style="height:0%"></div>
+                    </div>
+                    <div id="prog-bar-pct">0%</div>
+                </div>
+                <div id="canvas-game-col">
+                    <div id="canvas-wrap">
+                        <canvas id="gc"></canvas>
+                        <div id="msg-bubble"></div>
+                        <div id="score-popup"></div>
+                        <div id="result-flash"></div>
+                        <div id="game-overlay">
+                            <div class="over-box">
+                                <div class="over-title" id="over-title"><span data-i18n="game_over">Oyun Bitti</span>
+                                </div>
+                                <div class="over-sub" id="over-sub"></div>
+                                <button class="over-btn" onclick="restartGame()"><span data-i18n="play_again">Tekrar
+                                        Oyna</span></button>
+                                <button class="over-btn sec" onclick="showScreen('menu')">Menü</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="ctrl-row">
+                <button class="cbtn" onpointerdown="moveLeft()">◀</button>
+                <button class="cbtn" onpointerdown="fastDrop()">▼</button>
+                <button class="cbtn" onpointerdown="moveRight()">▶</button>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     STATS SCREEN
+════════════════════════════════ -->
+        <div id="screen-stats" class="screen">
+            <button class="back-btn" onclick="showScreen('menu')"><span data-i18n="back">← Geri</span></button>
+            <div style="width:100%">
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-num" id="st-score">0</div>
+                        <div class="stat-lbl"><span data-i18n="total_score">Toplam Skor</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-num" id="st-streak">0 🔥</div>
+                        <div class="stat-lbl"><span data-i18n="daily_streak">Günlük Seri</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-num" id="st-learned">0</div>
+                        <div class="stat-lbl">Öğrenilen</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-num" id="st-weak">0</div>
+                        <div class="stat-lbl"><span data-i18n="weak_words">Zayıf Kelime</span></div>
+                    </div>
+                </div>
+                <div style="font-size:12px;color:var(--text3);margin-bottom:6px"><span data-i18n="hardest_words">En çok
+                        zorlandıkların</span></div>
+                <div class="weak-list" id="weak-list"></div>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     SETTINGS SCREEN
+════════════════════════════════ -->
+        <!-- Uygulama Dili Seçimi -->
+        <!-- ════════════════════════════════
+     SETTINGS SCREEN
+════════════════════════════════ -->
+        <div id="screen-settings" class="screen">
+            <button class="back-btn" onclick="showScreen('menu')">← Geri</button>
+            <div style="width:100%">
+
+                <!-- Uygulama Dili Seçimi (EN ÜSTE) -->
+                <div class="sett-row">
+                    <div>
+                        <div class="sett-lbl" data-i18n="app_language">🌐 Uygulama Dili</div>
+                        <div class="sett-sub" data-i18n="app_language_sub">Arayüz dilini değiştir</div>
+                    </div>
+                    <select id="app-language" onchange="setAppLanguage(this.value)"
+                        style="padding:6px 10px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);font-size:13px">
+                        <option value="tr">🇹🇷 Türkçe</option>
+                        <option value="en">🇬🇧 English</option>
+                        <option value="fr">🇫🇷 Français</option>
+                        <option value="ru">🇷🇺 Русский</option>
+                        <option value="es">🇪🇸 Español</option>
+                    </select>
+                </div>
+
+                <!-- Öğrenilen Dil Tercihi -->
+                <div class="sett-row">
+                    <div>
+                        <div class="sett-lbl" data-i18n="learn_language">🎯 Öğrenilen Dil</div>
+                        <div class="sett-sub" data-i18n="learn_language_sub">Oyunda gösterilecek dil</div>
+                    </div>
+                    <select id="sett-learn-lang"
+                        style="padding:6px 10px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);font-size:13px"
+                        onchange="setLearnLangFromSettings(this.value)">
+                        <!-- JS ile dinamik doldurulur -->
+                    </select>
+                </div>
+
+                <!-- Kullanıcı Adı Değiştir -->
+                <div class="sett-row">
+                    <div>
+                        <div class="sett-lbl">🔄 Kullanıcı Adını Değiştir</div>
+                        <div class="sett-sub" id="sett-username-sub">—</div>
+                    </div>
+                    <button class="btn-secondary" style="font-size:12px;padding:7px 12px" onclick="changeUsername()">✏️
+                        Düzenle</button>
+                </div>
+
+                <!-- Hesabını Bağla — Cloud sync -->
+                <div class="sett-row">
+                    <div>
+                        <div class="sett-lbl">☁️ Hesabını Bağla</div>
+                        <div class="sett-sub" id="sett-cloud-sub">Verilerini bulutta yedekle</div>
+                    </div>
+                    <button class="btn-secondary" style="font-size:12px;padding:7px 12px" id="sett-cloud-btn"
+                        onclick="openCloudLinkModal()">Bağla</button>
+                </div>
+
+                <!-- Arka Plan Müziği -->
+                <div class="sett-row">
+                    <div>
+                        <div class="sett-lbl">🎵 Arka Plan Müziği</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="range" id="set-bgm-vol" min="0" max="100" value="70"
+                            style="width:70px;accent-color:var(--green)" oninput="setBgmVolume(this.value)">
+                        <label class="toggle"><input type="checkbox" id="set-bgm" checked
+                                onchange="toggleBgm(this.checked)">
+                            <div class="toggle-track"></div>
+                            <div class="toggle-thumb"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="sett-row">
+                    <div>
+                        <div class="sett-lbl"><span data-i18n="sound_fx">Ses Efektleri</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" id="set-sfx" checked>
+                        <div class="toggle-track"></div>
+                        <div class="toggle-thumb"></div>
+                    </label>
+                </div>
+                <div class="sett-row">
+                    <div>
+                        <div class="sett-lbl"><span data-i18n="word_tts">Kelime Seslendirme</span></div>
+                        <div class="sett-sub"><span data-i18n="word_tts_sub">Blok düşerken söyle</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" id="set-tts">
+                        <div class="toggle-track"></div>
+                        <div class="toggle-thumb"></div>
+                    </label>
+                </div>
+                <div class="sett-row">
+                    <div>
+                        <div class="sett-lbl"><span data-i18n="vibration">Titreşim</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" id="set-vib" checked>
+                        <div class="toggle-track"></div>
+                        <div class="toggle-thumb"></div>
+                    </label>
+                </div>
+                <div class="sett-row">
+                    <div>
+                        <div class="sett-lbl" style="color:var(--red)">Hesabı Sıfırla</div>
+                        <div class="sett-sub"><span data-i18n="reset_account_sub">Tüm verilerini sil</span></div>
+                    </div>
+                    <button class="btn-danger" onclick="resetAccount()"><span data-i18n="reset">Sıfırla</span></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     TEACHER PANEL
+════════════════════════════════ -->
+        <div id="screen-teacher" class="screen">
+            <button class="back-btn" onclick="showScreen('menu')"><span data-i18n="back_menu">← Menü</span></button>
+            <div style="width:100%;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+                <div>
+                    <div style="font-size:17px;font-weight:600;color:var(--text)" id="teacher-panel-title">Sınıfım</div>
+                    <div style="font-size:12px;color:var(--text3)" id="teacher-class-name"></div>
+                </div>
+                <div>
+                    <div class="badge badge-green" id="teacher-code-badge" style="cursor:pointer"
+                        onclick="showShareCode()">
+                        Kodu Paylaş
+                    </div>
+                </div>
+            </div>
+
+            <!-- Share code box -->
+            <div id="teacher-code-display" class="share-code-wrap" style="display:none;width:100%">
+                <div>
+                    <div style="font-size:10px;color:var(--green-dark);margin-bottom:2px"><span
+                            data-i18n="student_code_label">Öğrenci giriş kodu</span></div>
+                    <div class="share-code-val" id="tc-val">—</div>
+                </div>
+                <button class="copy-btn" onclick="copyCode()"><span data-i18n="copy">Kopyala</span></button>
+            </div>
+
+            <!-- Teacher tabs -->
+            <div style="display:flex;gap:4px;width:100%;overflow-x:auto;padding-bottom:2px">
+                <button class="admin-tab active" id="ttab-students" onclick="switchTeacherTab('students')"><span
+                        data-i18n="students_tab">Öğrenciler</span></button>
+                <button class="admin-tab" id="ttab-categories" onclick="switchTeacherTab('categories')"><span
+                        data-i18n="categories_tab">Kategoriler</span></button>
+                <button class="admin-tab" id="ttab-custom" onclick="switchTeacherTab('custom')"><span
+                        data-i18n="custom_tab">Özel Ders</span></button>
+            </div>
+
+            <!-- Öğrenciler sekmesi -->
+            <div id="tpanel-students" style="width:100%;display:flex;flex-direction:column;gap:8px">
+                <!-- Student list -->
+                <div class="card" style="width:100%;padding:0;overflow:hidden" id="student-list-card">
+                    <div id="student-list-inner"></div>
+                </div>
+            </div>
+
+            <!-- Kategoriler sekmesi -->
+            <div id="tpanel-categories" style="width:100%;display:none;flex-direction:column;gap:8px">
+                <div class="section-lbl" style="margin-top:0"><span data-i18n="assigned_cats">Sınıfa Atanmış
+                        Kategoriler</span></div>
+                <div id="teacher-assigned-cats" class="card" style="padding:10px;font-size:13px;color:var(--text3)">
+                    <span data-i18n="no_assigned">Henüz atanmış kategori yok.</span></div>
+                <div class="section-lbl"><span data-i18n="available_cats">Mevcut Kategoriler</span></div>
+                <div id="teacher-available-cats" class="card" style="padding:0;overflow:hidden"></div>
+            </div>
+
+            <!-- Özel Ders sekmesi -->
+            <div id="tpanel-custom" style="width:100%;display:none;flex-direction:column;gap:8px">
+                <div class="section-lbl" style="margin-top:0">Kelime Yönetimi (Sadece Sınıfın)</div>
+                <button class="btn-primary" onclick="openImportModal('teacher')" style="background:var(--blue)">📥 Excel
+                    / Görsel ile Aktar</button>
+                <div class="admin-tabs" id="teacher-cat-tabs"></div>
+                <div class="card" style="width:100%;padding:0;overflow:hidden">
+                    <div id="teacher-word-list"></div>
+                </div>
+                <div class="add-word-form" style="width:100%">
+                    <div style="font-size:12px;font-weight:500;color:var(--text2)">Kelime Ekle (sadece sınıfına özel)
+                    </div>
+                    <div class="row">
+                        <input id="tw-tr" placeholder="Türkçe" class="input-field"
+                            style="padding:8px 10px;font-size:13px">
+                        <input id="tw-en" placeholder="İngilizce" class="input-field"
+                            style="padding:8px 10px;font-size:13px">
+                    </div>
+                    <div class="row">
+                        <input id="tw-de" placeholder="Almanca" class="input-field"
+                            style="padding:8px 10px;font-size:13px">
+                        <input id="tw-ru" placeholder="Rusça" class="input-field"
+                            style="padding:8px 10px;font-size:13px">
+                    </div>
+                    <select id="tw-cat" class="input-field" style="padding:8px 10px;font-size:13px"></select>
+                    <button class="btn-primary" onclick="teacherAddWord()">Ekle</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     STUDENT DETAIL
+════════════════════════════════ -->
+        <div id="screen-student-detail" class="screen">
+            <button class="back-btn" onclick="showScreen('teacher')">← Geri</button>
+            <div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px">
+                <div class="student-avatar" id="sd-avatar" style="width:44px;height:44px;font-size:16px">?</div>
+                <div>
+                    <div style="font-size:16px;font-weight:600;color:var(--text)" id="sd-name">—</div>
+                    <div style="font-size:12px;color:var(--text3)" id="sd-joined">—</div>
+                </div>
+            </div>
+            <div class="detail-stat-grid">
+                <div class="stat-card">
+                    <div class="stat-num" id="sd-score">0</div>
+                    <div class="stat-lbl">Skor</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-num" id="sd-learned">0</div>
+                    <div class="stat-lbl">Öğrenilen</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-num" id="sd-time">0dk</div>
+                    <div class="stat-lbl"><span data-i18n="play_time"><span data-i18n="play_time">Oynama
+                                Süresi</span></span></div>
+                </div>
+            </div>
+            <div class="section-lbl"><span data-i18n="cat_progress">Kategori Bazlı İlerleme</span></div>
+            <div id="sd-cat-progress" style="width:100%"></div>
+            <div class="section-lbl"><span data-i18n="assign_level">Seviye Ata</span></div>
+            <div class="row">
+                <select id="sd-assign-cat" class="input-field" style="font-size:13px;padding:9px 10px"></select>
+                <button class="btn-primary" style="width:auto;padding:9px 16px;font-size:13px"
+                    onclick="assignCategory()"><span data-i18n="assign">Ata</span></button>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     ADMIN PANEL
+════════════════════════════════ -->
+        <div id="screen-admin" class="screen">
+            <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:10px">
+                <div style="font-size:17px;font-weight:600;color:var(--text)"><span data-i18n="admin_title">Admin
+                        Paneli</span></div>
+                <button class="back-btn" style="margin:0" onclick="showScreen('menu')">← Menü</button>
+            </div>
+
+            <div style="display:flex;gap:4px;width:100%;overflow-x:auto;padding-bottom:2px;margin-bottom:10px">
+                <button class="admin-tab active" id="atab-langs" onclick="switchAdminTab('langs')">🌐 Diller</button>
+                <button class="admin-tab" id="atab-cats" onclick="switchAdminTab('cats')"><span
+                        data-i18n="categories">Kategoriler</span></button>
+                <button class="admin-tab" id="atab-levels" onclick="switchAdminTab('levels')"><span
+                        data-i18n="levels">Seviyeler</span></button>
+                <button class="admin-tab" id="atab-words" onclick="switchAdminTab('words')"><span
+                        data-i18n="words">Kelimeler</span></button>
+                <button class="admin-tab" id="atab-users" onclick="switchAdminTab('users')"><span
+                        data-i18n="users">Kullanıcılar</span></button>
+                <button class="admin-tab" id="atab-teachers" onclick="switchAdminTab('teachers')"><span
+                        data-i18n="teachers">Öğretmenler</span></button>
+                <button class="admin-tab" id="atab-stats" onclick="switchAdminTab('stats')"><span
+                        data-i18n="statistics">İstatistik</span></button>
+            </div>
+
+            <!-- DİLLER -->
+            <div id="apanel-langs" style="width:100%;display:flex;flex-direction:column;gap:8px">
+                <div class="card" style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:12px;font-weight:500;color:var(--text2)">Yeni Dil Ekle</div>
+                    <div style="display:flex;gap:6px">
+                        <input id="new-lang-flag" class="input-field" placeholder="🇬🇧 Bayrak"
+                            style="flex:0 0 70px;text-align:center;font-size:18px">
+                        <input id="new-lang-name" class="input-field" placeholder="Dil adı (örn: İngilizce)"
+                            style="flex:1">
+                        <input id="new-lang-code" class="input-field" placeholder="Kod (örn: en)"
+                            style="flex:0 0 70px;text-transform:lowercase">
+                    </div>
+                    <button class="btn-primary" onclick="adminAddLanguage()">Dil Ekle</button>
+                </div>
+                <div class="card" style="padding:0;overflow:hidden">
+                    <div id="admin-lang-list"></div>
+                </div>
+            </div>
+
+            <!-- SEVİYELER -->
+            <div id="apanel-levels" style="width:100%;display:none;flex-direction:column;gap:8px">
+                <div class="card" style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:12px;font-weight:500;color:var(--text2)">Yeni Seviye Ekle</div>
+                    <input id="new-level-key" class="input-field" placeholder="Seviye key (örn: c1)"
+                        style="font-size:13px;padding:8px 10px;font-family:monospace">
+                    <div id="new-level-names-wrap" style="display:flex;flex-direction:column;gap:5px">
+                        <!-- JS ile doldurulur -->
+                    </div>
+                    <button class="btn-primary" style="width:auto;padding:11px 14px" onclick="adminAddLevel()">Seviye
+                        Ekle</button>
+                </div>
+                <div class="card" style="padding:0;overflow:hidden">
+                    <div id="admin-level-list"></div>
+                </div>
+            </div>
+
+            <!-- KATEGORİLER -->
+            <div id="apanel-cats" style="width:100%;display:none;flex-direction:column;gap:8px">
+                <div class="card" style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:12px;font-weight:500;color:var(--text2)">Yeni Kategori Ekle</div>
+                    <input id="new-cat-key" class="input-field" placeholder="Kategori key (örn: colors)"
+                        style="font-size:13px;padding:8px 10px;font-family:monospace">
+                    <div id="new-cat-names-wrap" style="display:flex;flex-direction:column;gap:5px">
+                        <!-- JS ile doldurulur -->
+                    </div>
+                    <button class="btn-primary" style="width:auto;padding:11px 14px"
+                        onclick="adminAddCategory()">Kategori Ekle</button>
+                </div>
+                <div class="card" style="padding:0;overflow:hidden">
+                    <div id="admin-cat-list"></div>
+                </div>
+            </div>
+
+            <!-- KELİMELER -->
+            <div id="apanel-words" style="width:100%;display:none;flex-direction:column;gap:8px">
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    <select id="word-lang-filter" class="input-field"
+                        style="flex:0 0 130px;font-size:12px;padding:8px 10px" onchange="renderAdminWordsPanel()">
+                        <option value="">Tüm Diller</option>
+                    </select>
+                    <select id="word-source-type" class="input-field"
+                        style="flex:0 0 120px;font-size:12px;padding:8px 10px" onchange="renderAdminWordsPanel()">
+                        <option value="category">Kategoriler</option>
+                        <option value="level">Seviyeler</option>
+                    </select>
+                    <select id="word-cat-select" class="input-field" style="flex:1"
+                        onchange="renderAdminWordList()"></select>
+                </div>
+                <div class="card" style="display:flex;flex-direction:column;gap:7px">
+                    <div style="font-size:12px;font-weight:500;color:var(--text2)"><span data-i18n="single_word_add">Tek
+                            Kelime Ekle</span></div>
+                    <div style="display:flex;gap:6px">
+                        <input id="aw-tr" class="input-field" placeholder="Türkçe (kaynak)"
+                            style="flex:1;padding:8px 10px;font-size:13px">
+                        <input id="aw-target" class="input-field" placeholder="Hedef dilde karşılık"
+                            style="flex:1;padding:8px 10px;font-size:13px">
+                    </div>
+                    <div style="font-size:10px;color:var(--text3)">Hedef dil: seçili dil filtresi esas alınır (sol
+                        üstteki dil seçimi)</div>
+                    <button class="btn-primary" onclick="adminAddWord()">Ekle</button>
+                </div>
+                <div class="card" style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:12px;font-weight:500;color:var(--text2)">Excel / Görsel ile Toplu Ekle</div>
+                    <button class="btn-primary" onclick="openImportModal('admin')" style="background:var(--blue)">📥
+                        Aktarım Aracını Aç</button>
+                </div>
+                <div class="card" style="padding:0;overflow:hidden">
+                    <div id="admin-word-list"></div>
+                </div>
+            </div>
+
+            <!-- KULLANICILAR -->
+            <div id="apanel-users" style="width:100%;display:none;flex-direction:column;gap:8px">
+                <div style="font-size:12px;color:var(--text3)" id="admin-user-count"></div>
+                <div class="card" style="padding:0;overflow:hidden">
+                    <div id="admin-user-list"></div>
+                </div>
+            </div>
+
+            <!-- ÖĞRETMENLER -->
+            <div id="apanel-teachers" style="width:100%;display:none;flex-direction:column;gap:8px">
+                <div style="font-size:12px;color:var(--text3)" id="admin-teacher-count"></div>
+                <div class="card" style="padding:0;overflow:hidden">
+                    <div id="admin-teacher-list"></div>
+                </div>
+            </div>
+
+            <!-- İSTATİSTİK -->
+            <div id="apanel-stats" style="width:100%;display:none;flex-direction:column;gap:8px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div class="stat-card">
+                        <div class="stat-num" id="ast-users">0</div>
+                        <div class="stat-lbl">Kullanıcı</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-num" id="ast-teachers">0</div>
+                        <div class="stat-lbl">Öğretmen</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-num" id="ast-correct">0</div>
+                        <div class="stat-lbl"><span data-i18n="total_correct">Toplam Doğru</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-num" id="ast-wrong">0</div>
+                        <div class="stat-lbl"><span data-i18n="total_wrong">Toplam Yanlış</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-num" id="ast-learned">0</div>
+                        <div class="stat-lbl">Öğrenilen</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-num" id="ast-premium">0</div>
+                        <div class="stat-lbl"><span data-i18n="premium">Premium</span></div>
+                    </div>
+                </div>
+                <div style="font-size:12px;font-weight:500;color:var(--text2);margin-top:4px">Dil ve Kategori Bazlı
+                    Kelime Sayısı</div>
+                <div class="card" style="padding:0;overflow:hidden">
+                    <div id="ast-cat-list"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ════════════════════════════════
+     MODAL
+════════════════════════════════ -->
+        <div id="modal-backdrop" onclick="closeModal(event)">
+            <div class="modal-box" id="modal-box">
+                <button class="modal-close" onclick="closeModal()">×</button>
+                <div id="modal-content"></div>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     HOŞ GELDİN MODALI (ilk giriş)
+════════════════════════════════ -->
+        <div id="welcome-modal-backdrop"
+            style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center;padding:20px">
+            <div
+                style="background:var(--bg);border-radius:16px;width:100%;max-width:360px;padding:28px 22px;text-align:center">
+                <div style="font-size:36px;margin-bottom:10px">🎉</div>
+                <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px"><span
+                        data-i18n="welcome_title">HOŞ GELDİN!</span></div>
+                <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">
+                    <strong style="color:var(--green)"><span data-i18n="welcome_trial">7 günlük ücretsiz
+                            deneme</span></strong> kazandın!<br>
+                    <span data-i18n="welcome_desc">Tüm kategoriler, tüm seviyeler ve tüm özellikler açık.</span><br>
+                    <span data-i18n="welcome_trial_end">Deneme bitiminde premium'a geçerek devam edebilirsin.</span>
+                </div>
+                <button class="btn-primary" onclick="closeWelcomeModal()"><span
+                        data-i18n="lets_start">BAŞLAYALIM</span></button>
+                <button onclick="closeWelcomeModal()"
+                    style="background:none;border:none;font-size:12px;color:var(--text3);cursor:pointer;margin-top:10px;display:block;width:100%">Kapat</button>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════
+     DİL SEÇİM EKRANI (ilk giriş)
+════════════════════════════════ -->
+        <div id="lang-select-backdrop"
+            style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:250;display:none;align-items:center;justify-content:center;padding:20px">
+            <div style="background:var(--bg);border-radius:16px;width:100%;max-width:360px;padding:28px 22px">
+                <div style="text-align:center;margin-bottom:20px">
+                    <div style="font-size:32px;margin-bottom:8px">🌍</div>
+                    <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px"
+                        data-i18n="select_learn_lang">Öğrenmek istediğiniz dili seçin</div>
+                    <div style="font-size:12px;color:var(--text3);line-height:1.6" data-i18n="learn_lang_sub">Türkçe
+                        kelimeler seçtiğiniz dile çevrilecek.</div>
+                </div>
+                <div id="lang-select-options" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+                </div>
+                <div
+                    style="font-size:11px;color:var(--text3);text-align:center;background:var(--bg2);border-radius:var(--radius);padding:8px 12px">
+                    <span data-i18n="lang_change_note">💡 Dil tercihinizi daha sonra</span>
+                    <strong data-i18n="settings">Ayarlar</strong>
+                    <span data-i18n="lang_change_note2">bölümünden değiştirebilirsiniz.</span>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ════════════════════════════════
+     CLOUD HESAP BAĞLAMA MODALI
+════════════════════════════════ -->
+        <div id="cloud-modal-backdrop"
+            style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center;padding:20px">
+            <div style="background:var(--bg);border-radius:16px;width:100%;max-width:360px;padding:28px 22px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                    <div style="font-size:17px;font-weight:600;color:var(--text)">☁️ Hesabını Bağla</div>
+                    <button onclick="closeCloudLinkModal()"
+                        style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;line-height:1">×</button>
+                </div>
+
+                <!-- Bağlı değilse seçenekler -->
+                <div id="cloud-unlinked-view">
+                    <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">
+                        Verilerini bulutta kaydet — farklı cihazlardan erişebilirsin.
+                    </div>
+
+                    <!-- Google ile bağla -->
+                    <button onclick="cloudLinkGoogle()"
+                        style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:left;width:100%;margin-bottom:8px">
+                        <span style="font-size:22px">🔵</span>
+                        <div>
+                            <div style="font-size:14px;font-weight:500;color:var(--text)">Google ile Bağla</div>
+                            <div style="font-size:12px;color:var(--text3);margin-top:2px">Gmail hesabınla giriş yap
+                            </div>
+                        </div>
+                        <span
+                            style="margin-left:auto;font-size:11px;background:var(--orange-light);color:#7a4a0a;border-radius:4px;padding:2px 7px;font-weight:500">Yakında</span>
+                    </button>
+
+                    <!-- E-posta ile bağla -->
+                    <button onclick="cloudLinkEmail()"
+                        style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:left;width:100%;margin-bottom:16px">
+                        <span style="font-size:22px">📧</span>
+                        <div>
+                            <div style="font-size:14px;font-weight:500;color:var(--text)">E-posta ile Bağla</div>
+                            <div style="font-size:12px;color:var(--text3);margin-top:2px">E-posta + şifre ile kayıt ol
+                            </div>
+                        </div>
+                        <span
+                            style="margin-left:auto;font-size:11px;background:var(--orange-light);color:#7a4a0a;border-radius:4px;padding:2px 7px;font-weight:500">Yakında</span>
+                    </button>
+
+                    <div
+                        style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);padding:12px;font-size:11px;color:var(--text3);line-height:1.6">
+                        📱 Bulut yedekleme uygulama sürümünde aktif olacak. Şu an verileriniz bu cihazda güvenle
+                        saklanıyor.
+                    </div>
+                </div>
+
+                <!-- Bağlıysa bilgi -->
+                <div id="cloud-linked-view" style="display:none">
+                    <div style="text-align:center;padding:12px 0">
+                        <div style="font-size:36px;margin-bottom:8px">✅</div>
+                        <div style="font-size:15px;font-weight:600;color:var(--green);margin-bottom:4px">Hesap Bağlandı
+                        </div>
+                        <div style="font-size:13px;color:var(--text2)" id="cloud-linked-email">—</div>
+                    </div>
+                    <button onclick="cloudUnlink()" class="btn-danger" style="width:100%;margin-top:12px">Bağlantıyı
+                        Kaldır</button>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- #root -->
+
+    <!-- ════════════════════════════════
+     KELİME AKTARIM MODALİ
+════════════════════════════════ -->
+    <div id="import-modal" class="import-modal">
+        <div class="import-box">
+            <div class="import-header">
+                <div class="import-title">📥 Kelime Aktar</div>
+                <button class="import-close" onclick="closeImportModal()">×</button>
+            </div>
+            <div class="import-body" id="import-body">
+
+                <!-- Sekme -->
+                <div class="import-tabs">
+                    <button class="import-tab active" id="itab-excel" onclick="switchImportTab('excel')">📊 Excel /
+                        CSV</button>
+                    <button class="import-tab" id="itab-ocr" onclick="switchImportTab('ocr')">📷 Görsel (OCR)</button>
+                </div>
+
+                <!-- Kota -->
+                <div class="quota-bar-wrap" id="import-quota-wrap"></div>
+
+                <!-- Hedef (admin/öğretmen için) -->
+                <div id="import-target-row" style="display:none">
+                    <div class="section-lbl" style="margin-top:0"><span data-i18n="import_target">Eklenecek Yer</span>
+                    </div>
+                    <select id="import-target-select" class="input-field"
+                        style="font-size:13px;padding:9px 10px"></select>
+                </div>
+
+                <!-- ── EXCEL PANEL ── -->
+                <div id="ipanel-excel" style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:11px;color:var(--text3);line-height:1.6">
+                        Format: <strong>Türkçe | İngilizce | Almanca | Rusça</strong> (sütun sırası)<br>
+                        Desteklenen: .xlsx, .xls, .csv — Max 300 kelime
+                    </div>
+                    <label
+                        style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);cursor:pointer">
+                        <span style="font-size:18px">📊</span>
+                        <div>
+                            <div style="font-size:13px;font-weight:500;color:var(--text)"><span
+                                    data-i18n="select_file">Dosya Seç</span></div>
+                            <div style="font-size:11px;color:var(--text3)" id="excel-file-name">Henüz seçilmedi</div>
+                        </div>
+                        <input type="file" id="import-excel-file" accept=".xlsx,.xls,.csv" style="display:none"
+                            onchange="handleExcelFile(this)">
+                    </label>
+                </div>
+
+                <!-- ── OCR PANEL ── -->
+                <div id="ipanel-ocr" style="display:none;flex-direction:column;gap:8px">
+                    <div style="font-size:11px;color:var(--text3);line-height:1.6">
+                        Fotoğrafı çek veya seç — Tesseract OCR metni okur.<br>
+                        ⚠️ Net baskılı yazılarda iyi çalışır. Max 100 kelime.
+                    </div>
+                    <div class="ocr-drop" id="ocr-drop" onclick="document.getElementById('ocr-image-input').click()">
+                        <div style="font-size:28px;margin-bottom:6px">📷</div>
+                        <div style="font-size:13px;color:var(--text2)"><span data-i18n="ocr_select">Görsel seç veya
+                                kamera</span></div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:3px"><span data-i18n="ocr_formats">JPG,
+                                PNG, HEIC</span></div>
+                        <input type="file" id="ocr-image-input" accept="image/*" capture="environment"
+                            style="display:none" onchange="handleOcrImage(this)">
+                    </div>
+                    <div class="ocr-progress" id="ocr-progress">
+                        <div class="ocr-progress-bar">
+                            <div class="ocr-progress-fill" id="ocr-progress-fill" style="width:0%"></div>
+                        </div>
+                        <div class="ocr-status" id="ocr-status">Hazırlanıyor...</div>
+                    </div>
+                    <!-- OCR dil seçimi -->
+                    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
+                        <span><span data-i18n="ocr_lang_label">Görseldeki dil:</span></span>
+                        <select id="ocr-lang-select" class="input-field"
+                            style="font-size:12px;padding:6px 8px;width:auto">
+                            <option value="tur">Türkçe</option>
+                            <option value="eng">İngilizce</option>
+                            <option value="deu">Almanca</option>
+                            <option value="rus">Rusça</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ── ÖNIZLEME ── -->
+                <div id="import-preview-section" style="display:none;flex-direction:column;gap:8px">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div style="font-size:12px;font-weight:500;color:var(--text2)"><span
+                                data-i18n="preview_title">Önizleme — Düzenleyebilirsiniz</span></div>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <span class="import-count-badge" id="preview-count-badge">0 kelime</span>
+                            <span class="import-warn-badge" id="preview-warn-badge" style="display:none">⚠️
+                                şüpheli</span>
+                        </div>
+                    </div>
+                    <div
+                        style="overflow-x:auto;border:0.5px solid var(--border);border-radius:var(--radius);max-height:280px;overflow-y:auto">
+                        <table class="import-preview-table" id="import-preview-table">
+                            <thead>
+                                <tr>
+                                    <th>TR</th>
+                                    <th>EN</th>
+                                    <th>DE</th>
+                                    <th>RU</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="import-preview-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div style="font-size:10px;color:var(--text3)">🟡 Sarı satırlar OCR'ın şüpheli okuduğu kelimeler —
+                        kontrol edin.</div>
+                </div>
+
+            </div><!-- /import-body -->
+
+            <div class="import-btn-row">
+                <button class="btn-secondary" style="flex:1" onclick="closeImportModal()"><span
+                        data-i18n="cancel">İptal</span></button>
+                <button class="btn-primary" style="flex:2;display:none" id="import-confirm-btn"
+                    onclick="confirmImport()"><span data-i18n="confirm_add">✅ Onayla ve Ekle</span></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/i18n.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>
